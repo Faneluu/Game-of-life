@@ -142,10 +142,8 @@ void divideTasks()
     }
 }
 
-void checkAboveLine(int i, int j, int *pNrON)
+void checkAboveLine(int i, int j)
 {
-    int nrON = 0;
-
     if (localBuffer[(i - 1) * columns + j])
     {
         nrON++;
@@ -160,14 +158,10 @@ void checkAboveLine(int i, int j, int *pNrON)
     {
         nrON++;
     }
-
-    (*pNrON) += nrON;
 }
 
-void checkBelowLine(int i, int j, int *pNrON)
+void checkBelowLine(int i, int j)
 {
-    int nrON = 0;
-
     if (localBuffer[(i + 1) * columns + j])
     {
         nrON++;
@@ -182,8 +176,6 @@ void checkBelowLine(int i, int j, int *pNrON)
     {
         nrON++;
     }
-
-    (*pNrON) += nrON;
 }
 
 int neighboursON(int i, int j)
@@ -221,7 +213,7 @@ int neighboursON(int i, int j)
 
         if (i != 0)
         {
-            checkAboveLine(i, j, &nrON);
+            checkAboveLine(i, j);
         }
         else
         {
@@ -243,9 +235,8 @@ int neighboursON(int i, int j)
     }
     else if (i > 0)
     {
-
-        checkAboveLine(i, j, &nrON);
-        checkBelowLine(i, j, &nrON);
+        checkAboveLine(i, j);
+        checkBelowLine(i, j);
     }
     else if (i == 0)
     {
@@ -264,7 +255,7 @@ int neighboursON(int i, int j)
             nrON++;
         }
 
-        checkBelowLine(i, j, &nrON);
+        checkBelowLine(i, j);
     }
 
     return nrON;
