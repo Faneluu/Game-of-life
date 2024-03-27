@@ -7,8 +7,10 @@
 #define ON 1
 #define OFF 0
 
-int *matrix, *sendCounts, *displs, *recvCounts, *recvDispls, *localBuffer, *buffer, *startAboveLine, *startBelowLine, *aboveLine, *belowLine;
-int numSteps, rows, columns, rank, nProcesses, totalElements, approximateValue, nrON;
+int *matrix, *sendCounts, *displs, *recvCounts, *recvDispls, *localBuffer, *buffer, *startAboveLine, *startBelowLine, *aboveLine, *belowLine, *realLocalBuffer;
+int numSteps, rows, columns, rank, nProcesses, totalElements, approximateValue, nrON,localRows, newRows, newColumns;
+
+    
 
 MPI_Request request, request1;
 
@@ -44,6 +46,15 @@ void init(char *file)
 
     aboveLine = (int *)calloc(columns, sizeof(int));
     belowLine = (int *)calloc(columns, sizeof(int));
+}
+
+void initPartTwo()
+{
+    localRows = sendCounts[rank] / columns;
+    newRows = localRows + 2;
+    newColumns = columns + 2;
+
+    realLocalBuffer = (int *)calloc((newRows * newColumns), sizeof(int));
 }
 
 void readMatrix(char *file)
@@ -182,113 +193,66 @@ int neighboursON(int i, int j)
 {
     nrON = 0;
 
-    // check the before and after elements
-    if (j > 0 && localBuffer[i * columns + j - 1])
-    {
-        nrON++;
-    }
+    nrON += realLocalBuffer[(i - 1) * newColumns + j] + realLocalBuffer[(i - 1) * newColumns + j - 1] + realLocalBuffer[(i - 1) * newColumns + j + 1];
+    nrON += realLocalBuffer[i * newColumns + j - 1] + realLocalBuffer[i * newColumns + j + 1];
+    nrON += realLocalBuffer[(i + 1) * newColumns + j] + realLocalBuffer[(i + 1) * newColumns + j - 1] + realLocalBuffer[(i + 1) * newColumns + j + 1];
 
-    if (j < (columns - 1) && localBuffer[i * columns + j + 1])
-    {
-        nrON++;
-    }
-
-    // if is the first or last row from localBuffer check the additionalLines and half of localBuffer else check the hole localBuffer
-    if (i == (sendCounts[rank] / columns - 1))
-    {
-        if (belowLine[j])
-        {
-            nrON++;
-        }
-
-        if (j > 0 && belowLine[j - 1])
-        {
-            nrON++;
-        }
-
-        if (j < (columns - 1) && belowLine[j + 1])
-        {
-            nrON++;
-        }
-
-        if (i != 0)
-        {
-            checkAboveLine(i, j);
-        }
-        else
-        {
-            if (aboveLine[j])
-            {
-                nrON++;
-            }
-
-            if (j > 0 && aboveLine[j - 1])
-            {
-                nrON++;
-            }
-
-            if (j < (columns - 1) && aboveLine[j + 1])
-            {
-                nrON++;
-            }
-        }
-    }
-    else if (i > 0)
-    {
-        checkAboveLine(i, j);
-        checkBelowLine(i, j);
-    }
-    else if (i == 0)
-    {
-        if (aboveLine[j])
-        {
-            nrON++;
-        }
-
-        if (j > 0 && aboveLine[j - 1])
-        {
-            nrON++;
-        }
-
-        if (j < (columns - 1) && aboveLine[j + 1])
-        {
-            nrON++;
-        }
-
-        checkBelowLine(i, j);
-    }
+    //printf("'a[%d][%d]= %d'\t", i, j, nrON);
 
     return nrON;
 }
 
 void changeMatrix()
 {
-   int i = 0, j = 0;
+    int i = 0, j = 0;
 
-    while (i < (sendCounts[rank] / columns))
-    {
+    // for (i = 0; i < rows; i++){
+    //     for (j = 0; j < columns; j++){
+    //         printf("%d ", localBuffer[i * columns + j]);
+    //     }
+    //     printf("\n");
+    // }
+    // printf("\n");
 
-        if (localBuffer[i * columns + j] == OFF)
-        {
-            // change to ON state if has 3 or 6 neighbours ON
-            if (neighboursON(i, j) == 3 || neighboursON(i, j) == 6)
-                buffer[i * columns + j] = ON;
+    // add padding
+    for (i = 1; i < newRows - 1; i++){
+        for (j = 1; j < newColumns - 1; j++){
+            realLocalBuffer[i * newColumns + j] = localBuffer[(i - 1) * columns + (j - 1)];
         }
+    }
 
-        else
+    // add additional lines
+    for (j = 1; j < newColumns - 1; j++){
+        realLocalBuffer[j] = aboveLine[j - 1];
+        realLocalBuffer[(newRows - 1) * newColumns + j] = belowLine[j - 1];
+    }
+
+    // for (i = 0; i < newRows; i++){
+    //     for (j = 0; j < newColumns; j++){
+    //         printf("%d ", realLocalBuffer[i * newColumns + j]);
+    //     }
+    //     printf("\n");
+    // }
+
+    // take every element
+    for (i = 1; i < newRows - 1; i++){
+        for (j = 1; j < newColumns - 1; j++)
         {
-            // change to OFF if hasn't 2 or 3 neighbours ON
-            if (neighboursON(i, j) == 2 || neighboursON(i, j) == 3)
-                buffer[i * columns + j] = ON;
+            if (realLocalBuffer[i * newColumns + j] == OFF)
+            {
+                // change to ON state if has 3 or 6 neighbours ON
+                if (neighboursON(i, j) == 3 || neighboursON(i, j) == 6)
+                    buffer[(i - 1) * columns + (j - 1)] = ON;
+            }
+
             else
-                buffer[i * columns + j] = OFF;
-        }
-
-        j++;
-        if (j == columns)
-        {
-            i++;
-            j = 0;
+            {
+                // change to OFF if hasn't 2 or 3 neighbours ON
+                if (neighboursON(i, j) == 2 || neighboursON(i, j) == 3)
+                    buffer[(i - 1) * columns + (j - 1)] = ON;
+                else
+                    buffer[(i - 1) * columns + (j - 1)] = OFF;
+            }
         }
     }
 }
@@ -333,6 +297,8 @@ int main(int argc, char *argv[])
 
     MPI_Bcast(sendCounts, nProcesses, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(displs, nProcesses, MPI_INT, 0, MPI_COMM_WORLD);
+
+    initPartTwo();
 
    for (int iter = 0; iter < numSteps; iter++)
     {
