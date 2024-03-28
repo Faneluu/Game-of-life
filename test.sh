@@ -1,7 +1,7 @@
 #!/bin/bash
 #author: andrei dodot
 
-NPROCS=5
+NPROCS=7
 
 NSTEPS1=(1 2 3 4 5 6 7 8 9 10 11)
 NSTEPS2=(1 2 3 4 5 6 7 8 9 10 37 38)
